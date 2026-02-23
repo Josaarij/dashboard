@@ -1,71 +1,86 @@
 import streamlit as st
 import pandas as pd
-import plotly.graph_objects as go
+import plotly.express as px
+import os
+from datetime import datetime
 
 st.set_page_config(layout="wide")
+st.title("Hallituksen strateginen mittaristo")
 
-st.title("Hallituksen strategiset mittarit")
+DATA_PATH = "data/history.csv"
 
-# --- Sivupalkki arvojen syöttöön ---
+# --- Luo datafolder jos ei ole ---
+if not os.path.exists("data"):
+    os.makedirs("data")
+
+# --- Lataa historiadata ---
+if os.path.exists(DATA_PATH):
+    history = pd.read_csv(DATA_PATH)
+else:
+    history = pd.DataFrame()
+
+# --- Statuslogiikka ---
+def get_status(value, target, warning, direction="up"):
+    if direction == "up":
+        if value >= target:
+            return "🟢"
+        elif value >= warning:
+            return "🟡"
+        else:
+            return "🔴"
+    else:
+        if value <= target:
+            return "🟢"
+        elif value <= warning:
+            return "🟡"
+        else:
+            return "🔴"
+
+# --- Sidebar: mittarien syöttö ---
 st.sidebar.header("Päivitä mittarit")
 
-# ELINVOIMA
-pelaajamaara = st.sidebar.number_input("Pelaajamäärä yht.", value=850)
-nettokasvu = st.sidebar.number_input("Nettokasvu", value=25)
-lopettamis = st.sidebar.slider("Lopettamis-% (13–15v)", 0, 30, 12)
-tyttopelaajat = st.sidebar.number_input("Tyttö-/naispelaajamäärä", value=220)
+def input_metric(name, default_value=0.0):
+    value = st.sidebar.number_input(f"{name} arvo", value=float(default_value))
+    target = st.sidebar.number_input(f"{name} tavoite", value=float(default_value))
+    warning = st.sidebar.number_input(f"{name} varoitusraja", value=float(default_value*0.8))
+    direction = st.sidebar.selectbox(f"{name} suunta",
+                                      ["up (suurempi parempi)", "down (pienempi parempi)"])
+    direction = "up" if "up" in direction else "down"
+    return value, target, warning, direction
 
-# TALOUS
-kassa = st.sidebar.number_input("Kassatilanne (€)", value=150000)
-tulosennuste = st.sidebar.number_input("Tulosennuste (€)", value=12000)
-kattavuus = st.sidebar.slider("Kattavuus %", 0, 150, 102)
-muut_tuotot = st.sidebar.number_input("Muut tuotot (€)", value=35000)
+metrics = {}
 
-# VALMENNUS
-pysyvyys = st.sidebar.slider("Valmentajien pysyvyys %", 0, 100, 85)
-koulutetut = st.sidebar.slider("Koulutetut %", 0, 100, 72)
-valmentajat_joukkue = st.sidebar.number_input("Valmentajamäärä/joukkue", value=2.1)
+metrics["Pelaajamäärä"] = input_metric("Pelaajamäärä", 850)
+metrics["Kattavuus %"] = input_metric("Kattavuus %", 100)
+metrics["Valmentajien pysyvyys %"] = input_metric("Valmentajien pysyvyys %", 85)
+metrics["Pelaajatyytyväisyys"] = input_metric("Pelaajatyytyväisyys", 4.2)
 
-# LAATU
-pelaajatyytyvaisyys = st.sidebar.slider("Pelaajatyytyväisyys (1–5)", 1.0, 5.0, 4.2)
-vanhemmatyytyvaisyys = st.sidebar.slider("Vanhempien tyytyväisyys (1–5)", 1.0, 5.0, 4.0)
-valmentajatyytyvaisyys = st.sidebar.slider("Valmentajien tyytyväisyys (1–5)", 1.0, 5.0, 4.3)
-huipulle = st.sidebar.number_input("Huipputasolle nousseet/vuosi", value=3)
-valmennuslinja = st.sidebar.slider("Valmennuslinjan toteutuminen %", 0, 100, 78)
+# --- Tallennus ---
+if st.sidebar.button("Tallenna snapshot"):
+    row = {"date": datetime.today().strftime("%Y-%m-%d")}
+    for name, (value, _, _, _) in metrics.items():
+        row[name] = value
+    history = pd.concat([history, pd.DataFrame([row])], ignore_index=True)
+    history.to_csv(DATA_PATH, index=False)
+    st.sidebar.success("Tallennettu")
 
-# --- KPI-korttien värit ---
-def vari(arvo, hyva, varoitus):
-    if arvo >= hyva:
-        return "green"
-    elif arvo >= varoitus:
-        return "orange"
-    else:
-        return "red"
+# --- Dashboard ---
+st.header("Strateginen tilannekuva")
 
-# --- Layout ---
-col1, col2 = st.columns(2)
+cols = st.columns(2)
 
-with col1:
-    st.header("🟢 ELINVOIMA")
-    st.metric("Pelaajamäärä", pelaajamaara, nettokasvu)
-    st.progress(tyttopelaajat / pelaajamaara)
-    st.write(f"Lopettamis-%: {lopettamis}%")
+i = 0
+for name, (value, target, warning, direction) in metrics.items():
+    status = get_status(value, target, warning, direction)
 
-    st.header("🎯 VALMENNUS")
-    st.progress(pysyvyys/100, text=f"Pysyvyys {pysyvyys}%")
-    st.progress(koulutetut/100, text=f"Koulutetut {koulutetut}%")
-    st.metric("Valmentajaa/joukkue", valmentajat_joukkue)
+    with cols[i % 2]:
+        st.subheader(f"{status} {name}")
+        st.metric("Nykytila", value)
+        st.write(f"Tavoite: {target} | Varoitus: {warning}")
 
-with col2:
-    st.header("💶 TALOUS")
-    st.metric("Kassatilanne", f"{kassa:,.0f} €")
-    st.metric("Tulosennuste", f"{tulosennuste:,.0f} €")
-    st.progress(kattavuus/150, text=f"Kattavuus {kattavuus}%")
-    st.metric("Muut tuotot", f"{muut_tuotot:,.0f} €")
+        if not history.empty and name in history.columns:
+            fig = px.line(history, x="date", y=name,
+                          title=f"{name} trendi")
+            st.plotly_chart(fig, use_container_width=True)
 
-    st.header("⭐ LAATU")
-    st.metric("Pelaajatyytyväisyys", pelaajatyytyvaisyys)
-    st.metric("Vanhempien tyyty.", vanhemmatyytyvaisyys)
-    st.metric("Valmentajien tyyty.", valmentajatyytyvaisyys)
-    st.metric("Huipulle/vuosi", huipulle)
-    st.progress(valmennuslinja/100, text=f"Valmennuslinja {valmennuslinja}%")
+    i += 1
