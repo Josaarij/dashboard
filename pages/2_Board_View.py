@@ -52,28 +52,45 @@ st.divider()
 cols = st.columns(2)
 i = 0
 
-for _, row in latest.iterrows():
-    status = get_status(row["value"], row["target"], row["warning"], row["direction"])
+for category, metric_list in ALL_METRICS.items():
 
-    if status == "🔴":
-        critical.append(row["metric"])
-    elif status == "🟡":
-        warning_list.append(row["metric"])
+    st.header(category)
+    cols = st.columns(2)
 
-    with cols[i % 2]:
-        st.subheader(f"{status} {row['metric']}")
-        st.metric("Nykytila", row["value"])
-        st.caption(f"Tavoite: {row['target']} | Varoitus: {row['warning']}")
+    i = 0
 
-        trend_data = data[data["metric"] == row["metric"]]
-        if len(trend_data) > 1:
-            fig = px.line(trend_data, x="date", y="value")
-            fig.update_layout(height=200, margin=dict(l=0,r=0,t=0,b=0))
-            st.plotly_chart(fig, use_container_width=True)
+    for metric_name in metric_list:
 
-    i += 1
+        metric_data = latest[latest["metric"] == metric_name]
 
-st.divider()
+        with cols[i % 2]:
+
+            if not metric_data.empty:
+                row = metric_data.iloc[0]
+                status = get_status(
+                    row["value"],
+                    row["target"],
+                    row["warning"],
+                    row["direction"]
+                )
+
+                st.subheader(f"{status} {metric_name}")
+                st.metric("Nykytila", row["value"])
+                st.caption(f"Tavoite: {row['target']} | Varoitus: {row['warning']}")
+
+                trend_data = data[data["metric"] == metric_name]
+                if len(trend_data) > 1:
+                    fig = px.line(trend_data, x="date", y="value")
+                    fig.update_layout(height=200, margin=dict(l=0,r=0,t=0,b=0))
+                    st.plotly_chart(fig, use_container_width=True)
+
+            else:
+                st.subheader(f"⚪ {metric_name}")
+                st.caption("Ei vielä tallennettua dataa")
+
+        i += 1
+
+    st.divider()
 
 st.header("Poikkeamat")
 
