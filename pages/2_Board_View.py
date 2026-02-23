@@ -13,6 +13,32 @@ supabase = create_client(url, key)
 
 # --- Statuslogiikka ---
 def get_status(value, target, warning, direction):
+ALL_METRICS = {
+    "ELINVOIMA": [
+        "Pelaajamäärä yht.",
+        "Nettokasvu",
+        "Lopettamis-% 13–15v",
+        "Tyttö-/naispelaajamäärä"
+    ],
+    "TALOUS": [
+        "Kassatilanne + ennuste",
+        "Tulosennuste",
+        "Kattavuus %",
+        "Muut tuotot"
+    ],
+    "VALMENNUS": [
+        "Valmentajien pysyvyys",
+        "Koulutetut %",
+        "Valmentajamäärä/joukkue"
+    ],
+    "LAATU": [
+        "Pelaajatyytyväisyys",
+        "Vanhempien tyytyväisyys",
+        "Valmentajien/taustojen tyytyväisyys",
+        "Huipputasolle nousseet/vuosi",
+        "Valmennuslinjan toteutuminen"
+    ]
+}
     if direction == "up":
         if value >= target:
             return "🟢"
