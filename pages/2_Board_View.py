@@ -34,41 +34,27 @@ ALL_METRICS = {
         "Pelaajamäärä yht.",
         "Nettokasvu",
         "Lopettamis-% 13–15v",
-        "Tyttö-/naispelaajamäärä"
+        "Tyttö-/naispelaajamäärä",
     ],
     "TALOUS": [
         "Kassatilanne + ennuste",
         "Tulosennuste",
         "Kattavuus %",
-        "Muut tuotot"
+        "Muut tuotot",
     ],
     "VALMENNUS": [
         "Valmentajien pysyvyys",
         "Koulutetut %",
-        "Valmentajamäärä/joukkue"
+        "Valmentajamäärä/joukkue",
     ],
     "LAATU": [
         "Pelaajatyytyväisyys",
         "Vanhempien tyytyväisyys",
         "Valmentajien/taustojen tyytyväisyys",
         "Huipputasolle nousseet/vuosi",
-        "Valmennuslinjan toteutuminen"
-    ]
+        "Valmennuslinjan toteutuminen",
+    ],
 }
-    if direction == "up":
-        if value >= target:
-            return "🟢"
-        elif value >= warning:
-            return "🟡"
-        else:
-            return "🔴"
-    else:
-        if value <= target:
-            return "🟢"
-        elif value <= warning:
-            return "🟡"
-        else:
-            return "🔴"
 
 # --- Hae data ---
 response = supabase.table("kpi_snapshots").select("*").execute()
@@ -78,62 +64,75 @@ if data.empty:
     st.warning("Ei tallennettua dataa.")
     st.stop()
 
+# Varmista oikeat tyypit (Supabase palauttaa usein date-stringinä)
+data["date"] = pd.to_datetime(data["date"], errors="coerce")
+
 # --- Uusin snapshot per mittari ---
 latest = (
     data.sort_values("date")
-        .groupby("metric")
-        .tail(1)
+    .groupby("metric", as_index=False)
+    .tail(1)
 )
 
 # --- Riskilistat ---
 critical = []
 warning_list = []
 
+st.caption("Näytetään viimeisin tallennettu arvo per mittari sekä trendi historiadatan perusteella.")
 st.divider()
 
-cols = st.columns(2)
-i = 0
-
+# --- Mittarien näyttö kategorioittain ---
 for category, metric_list in ALL_METRICS.items():
-
     st.header(category)
     cols = st.columns(2)
-
     i = 0
 
     for metric_name in metric_list:
-
         metric_data = latest[latest["metric"] == metric_name]
 
         with cols[i % 2]:
-
             if not metric_data.empty:
                 row = metric_data.iloc[0]
+
                 status = get_status(
-                    row["value"],
-                    row["target"],
-                    row["warning"],
-                    row["direction"]
+                    float(row["value"]),
+                    float(row["target"]),
+                    float(row["warning"]),
+                    str(row["direction"]),
                 )
+
+                if status == "🔴":
+                    critical.append(metric_name)
+                elif status == "🟡":
+                    warning_list.append(metric_name)
 
                 st.subheader(f"{status} {metric_name}")
                 st.metric("Nykytila", row["value"])
                 st.caption(f"Tavoite: {row['target']} | Varoitus: {row['warning']}")
 
-                trend_data = data[data["metric"] == metric_name]
+                trend_data = data[data["metric"] == metric_name].sort_values("date")
+
+                # Näytä trendi jos historiassa on useampi piste
                 if len(trend_data) > 1:
                     fig = px.line(trend_data, x="date", y="value")
-                    fig.update_layout(height=200, margin=dict(l=0,r=0,t=0,b=0))
+                    fig.update_layout(
+                        height=220,
+                        margin=dict(l=0, r=0, t=10, b=0),
+                        xaxis_title=None,
+                        yaxis_title=None,
+                    )
                     st.plotly_chart(fig, use_container_width=True)
-
+                else:
+                    st.caption("Ei vielä trendiä (vain yksi tallennus).")
             else:
                 st.subheader(f"⚪ {metric_name}")
-                st.caption("Ei vielä tallennettua dataa")
+                st.caption("Ei vielä tallennettua dataa tälle mittarille.")
 
         i += 1
 
     st.divider()
 
+# --- Poikkeamat ---
 st.header("Poikkeamat")
 
 col1, col2 = st.columns(2)
@@ -144,7 +143,7 @@ with col1:
         for m in critical:
             st.write(f"- {m}")
     else:
-        st.write("Ei kriittisiä mittareita")
+        st.write("Ei kriittisiä mittareita.")
 
 with col2:
     st.subheader("🟡 Varoitusalueella")
@@ -152,4 +151,4 @@ with col2:
         for m in warning_list:
             st.write(f"- {m}")
     else:
-        st.write("Ei varoitusalueella olevia mittareita")
+        st.write("Ei varoitusalueella olevia mittareita.")
