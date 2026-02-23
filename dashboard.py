@@ -1,26 +1,16 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import os
+from supabase import create_client
 from datetime import datetime
 
 st.set_page_config(layout="wide")
 st.title("Hallituksen strateginen mittaristo")
 
-DATA_PATH = "data/history.csv"
-
-# --- Luo datafolder jos ei ole ---
-if not os.path.exists("data"):
-    os.makedirs("data")
-
-# --- Lataa historiadata turvallisesti ---
-if os.path.exists(DATA_PATH) and os.path.getsize(DATA_PATH) > 0:
-    try:
-        history = pd.read_csv(DATA_PATH)
-    except Exception:
-        history = pd.DataFrame()
-else:
-    history = pd.DataFrame()
+# --- Supabase yhteys ---
+url = st.secrets["SUPABASE_URL"]
+key = st.secrets["SUPABASE_KEY"]
+supabase = create_client(url, key)
 
 # --- Statuslogiikka ---
 def get_status(value, target, warning, direction="up"):
@@ -39,51 +29,78 @@ def get_status(value, target, warning, direction="up"):
         else:
             return "🔴"
 
-# --- Sidebar: mittarien syöttö ---
+# --- Hae historiadata ---
+response = supabase.table("kpi_snapshots").select("*").execute()
+history = pd.DataFrame(response.data)
+
+# --- Sidebar ---
 st.sidebar.header("Päivitä mittarit")
 
-def input_metric(name, default_value=0.0):
+def input_metric(name, default_value):
     value = st.sidebar.number_input(f"{name} arvo", value=float(default_value))
     target = st.sidebar.number_input(f"{name} tavoite", value=float(default_value))
     warning = st.sidebar.number_input(f"{name} varoitusraja", value=float(default_value*0.8))
-    direction = st.sidebar.selectbox(f"{name} suunta",
-                                      ["up (suurempi parempi)", "down (pienempi parempi)"])
+    direction = st.sidebar.selectbox(
+        f"{name} suunta",
+        ["up (suurempi parempi)", "down (pienempi parempi)"],
+        key=name
+    )
     direction = "up" if "up" in direction else "down"
     return value, target, warning, direction
 
-metrics = {}
-
-metrics["Pelaajamäärä"] = input_metric("Pelaajamäärä", 850)
-metrics["Kattavuus %"] = input_metric("Kattavuus %", 100)
-metrics["Valmentajien pysyvyys %"] = input_metric("Valmentajien pysyvyys %", 85)
-metrics["Pelaajatyytyväisyys"] = input_metric("Pelaajatyytyväisyys", 4.2)
+metrics = {
+    "Pelaajamäärä": input_metric("Pelaajamäärä", 850),
+    "Kattavuus %": input_metric("Kattavuus %", 100),
+    "Valmentajien pysyvyys %": input_metric("Valmentajien pysyvyys %", 85),
+    "Pelaajatyytyväisyys": input_metric("Pelaajatyytyväisyys", 4.2),
+}
 
 # --- Tallennus ---
 if st.sidebar.button("Tallenna snapshot"):
-    row = {"date": datetime.today().strftime("%Y-%m-%d")}
-    for name, (value, _, _, _) in metrics.items():
-        row[name] = value
-    history = pd.concat([history, pd.DataFrame([row])], ignore_index=True)
-    history.to_csv(DATA_PATH, index=False)
-    st.sidebar.success("Tallennettu")
+    for name, (value, target, warning, direction) in metrics.items():
+        supabase.table("kpi_snapshots").insert({
+            "date": datetime.now().isoformat(),
+            "metric": name,
+            "value": value,
+            "target": target,
+            "warning": warning,
+            "direction": direction
+        }).execute()
+    st.sidebar.success("Tallennettu tietokantaan")
 
 # --- Dashboard ---
 st.header("Strateginen tilannekuva")
 
-cols = st.columns(2)
+# Riskikooste
+reds = 0
+yellows = 0
 
+cols = st.columns(2)
 i = 0
+
 for name, (value, target, warning, direction) in metrics.items():
     status = get_status(value, target, warning, direction)
+
+    if status == "🔴":
+        reds += 1
+    elif status == "🟡":
+        yellows += 1
 
     with cols[i % 2]:
         st.subheader(f"{status} {name}")
         st.metric("Nykytila", value)
         st.write(f"Tavoite: {target} | Varoitus: {warning}")
 
-        if not history.empty and name in history.columns:
-            fig = px.line(history, x="date", y=name,
-                          title=f"{name} trendi")
-            st.plotly_chart(fig, use_container_width=True)
+        if not history.empty:
+            df_metric = history[history["metric"] == name]
+            if not df_metric.empty:
+                fig = px.line(df_metric, x="date", y="value", title="Trendi")
+                st.plotly_chart(fig, use_container_width=True)
 
     i += 1
+
+st.divider()
+st.subheader("Riskikooste")
+
+st.write(f"🔴 Kriittisiä mittareita: {reds}")
+st.write(f"🟡 Varoitusalueella: {yellows}")
