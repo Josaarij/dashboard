@@ -13,6 +13,22 @@ supabase = create_client(url, key)
 
 # --- Statuslogiikka ---
 def get_status(value, target, warning, direction):
+    if direction == "up":
+        if value >= target:
+            return "🟢"
+        elif value >= warning:
+            return "🟡"
+        else:
+            return "🔴"
+    else:
+        if value <= target:
+            return "🟢"
+        elif value <= warning:
+            return "🟡"
+        else:
+            return "🔴"
+
+
 ALL_METRICS = {
     "ELINVOIMA": [
         "Pelaajamäärä yht.",
