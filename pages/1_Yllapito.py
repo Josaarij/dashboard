@@ -154,7 +154,8 @@ with st.form("kpi_form"):
 # --- Tallennus ---
 if submitted:
     now_iso = datetime.now().isoformat()
-
+    debug_name = "Tyttö-/naispelaajamäärä"
+    st.info(f"DEBUG: lomakkeen arvo '{debug_name}' = {metrics.get(debug_name)}")
     rows = []
     for name, (value, target, warning, direction) in metrics.items():
         rows.append({
