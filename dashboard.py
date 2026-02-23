@@ -48,11 +48,31 @@ def input_metric(name, default_value):
     direction = "up" if "up" in direction else "down"
     return value, target, warning, direction
 
-metrics = {
-    "Pelaajamäärä": input_metric("Pelaajamäärä", 850),
-    "Kattavuus %": input_metric("Kattavuus %", 100),
-    "Valmentajien pysyvyys %": input_metric("Valmentajien pysyvyys %", 85),
-    "Pelaajatyytyväisyys": input_metric("Pelaajatyytyväisyys", 4.2),
+ALL_METRICS = {
+    "ELINVOIMA": [
+        "Pelaajamäärä yht.",
+        "Nettokasvu",
+        "Lopettamis-% 13–15v",
+        "Tyttö-/naispelaajamäärä"
+    ],
+    "TALOUS": [
+        "Kassatilanne + ennuste",
+        "Tulosennuste",
+        "Kattavuus %",
+        "Muut tuotot"
+    ],
+    "VALMENNUS": [
+        "Valmentajien pysyvyys",
+        "Koulutetut %",
+        "Valmentajamäärä/joukkue"
+    ],
+    "LAATU": [
+        "Pelaajatyytyväisyys",
+        "Vanhempien tyytyväisyys",
+        "Valmentajien/taustojen tyytyväisyys",
+        "Huipputasolle nousseet/vuosi",
+        "Valmennuslinjan toteutuminen"
+    ]
 }
 
 # --- Tallennus ---
