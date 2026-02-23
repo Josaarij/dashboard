@@ -13,9 +13,12 @@ DATA_PATH = "data/history.csv"
 if not os.path.exists("data"):
     os.makedirs("data")
 
-# --- Lataa historiadata ---
-if os.path.exists(DATA_PATH):
-    history = pd.read_csv(DATA_PATH)
+# --- Lataa historiadata turvallisesti ---
+if os.path.exists(DATA_PATH) and os.path.getsize(DATA_PATH) > 0:
+    try:
+        history = pd.read_csv(DATA_PATH)
+    except Exception:
+        history = pd.DataFrame()
 else:
     history = pd.DataFrame()
 
