@@ -66,7 +66,18 @@ if data.empty:
 
 # Varmista oikeat tyypit (Supabase palauttaa usein date-stringinä)
 data["date"] = pd.to_datetime(data["date"], errors="coerce")
+with st.expander("DEBUG: mittarinimet ja viimeisimmät rivit", expanded=False):
+    st.write("Tietokannassa olevat metric-nimet:")
+    st.dataframe(pd.DataFrame(sorted(data["metric"].dropna().unique()), columns=["metric"]))
 
+    target_metric = "Tyttö-/naispelaajamäärä"
+    st.write(f"Viimeisimmät rivit mittarille: {target_metric}")
+    st.dataframe(
+        data[data["metric"] == target_metric]
+        .sort_values("date", ascending=False)
+        .head(10),
+        use_container_width=True
+    )
 # --- Uusin snapshot per mittari ---
 latest = (
     data.sort_values("date")
