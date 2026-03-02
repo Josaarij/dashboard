@@ -1,0 +1,30 @@
+name: Supabase Keepalive
+
+on:
+  schedule:
+    # 2x viikossa (ma & to) klo 09:00 UTC
+    # (Helsinki: yleensä 11:00 talvella, 12:00 kesällä)
+    - cron: "0 9 * * 1"
+    - cron: "0 9 * * 4"
+  workflow_dispatch: {}
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase (read keepalive row)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          ENDPOINT="${SUPABASE_URL}/rest/v1/keepalive?select=id,updated_at&limit=1"
+          echo "Pinging: $ENDPOINT"
+          curl -sS -X GET "$ENDPOINT" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            -H "Accept: application/json" \
+            --fail \
+            | head -c 500
+          echo
+          echo "OK"
