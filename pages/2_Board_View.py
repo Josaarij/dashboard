@@ -64,30 +64,37 @@ st.markdown(
         gap:.6rem;
         margin-bottom:.20rem;
       }
+      .kpi-title{
+        display:flex;
+        align-items:flex-start;          /* UUSI: ei pakota yhden rivin keskelle */
+        justify-content:space-between;
+        gap:.6rem;
+        margin-bottom:.20rem;
+}
+
       .kpi-name{
         font-weight: 780;
         letter-spacing:.2px;
         color: var(--text);
         font-size: 0.95rem;
         line-height: 1.15rem;
-      }
-      .kpi-status{
+
+  /* UUSI: sallii pitkän nimen rivittymisen kortin sisällä */
+        flex: 1 1 auto;
+        min-width: 0;                    /* tärkeä flexboxissa, muuten ei wrapaa oikein */
+        white-space: normal;
+        overflow-wrap: anywhere;         /* leikkaa tarvittaessa pitkiä pätkiä */
+        word-break: break-word;
+}
+
+     .kpi-status{
         font-size: 1.15rem;
         filter: drop-shadow(0 1px 1px rgba(0,0,0,0.35));
-      }
 
-      .kpi-value{
-        font-size: 1.25rem;
-        font-weight: 900;
-        color: var(--gold2);
-        line-height: 1.35rem;
-        margin: .10rem 0 .25rem 0;
-      }
-      .kpi-meta{
-        color: var(--muted);
-        font-size: 0.82rem;
-        margin-bottom: .35rem;
-      }
+  /* UUSI: pitää liikennevalon omassa tilassaan oikealla */
+        flex: 0 0 auto;
+        margin-top: 0.02rem;
+}
 
       .js-plotly-plot, .plot-container { background: transparent !important; }
 
