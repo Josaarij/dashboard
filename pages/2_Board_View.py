@@ -8,21 +8,113 @@ from metrics_definitions import ALL_METRICS  # yhteinen mittarilista
 st.set_page_config(layout="wide")
 st.title("Hallituksen strateginen tilannekuva")
 
-# --- Piilota Streamlitin oletus-sivupalkki Board View -näkymässä ---
+# --- Teema + sivupalkin piilotus + pieni valikkonappi (☰) ---
 st.markdown(
     """
     <style>
+      :root{
+        --bg: #0b0b0b;
+        --text: #f2f2f2;
+        --muted: #b7b7b7;
+        --gold: #caa64a;
+        --gold2:#e1c36b;
+        --border: rgba(202,166,74,0.22);
+      }
+
+      /* Piilota Streamlitin oletus-sivupalkki ja nav */
       [data-testid="stSidebar"] { display: none; }
       [data-testid="stSidebarNav"] { display: none; }
       section.main > div { padding-left: 1rem !important; }
-    </style>
-    """,
-    unsafe_allow_html=True,
 
-st.markdown(
-    """
-    <style>
-      /* Tyylitä "secondary" -nappi (Board View:ssä käytännössä vain ☰) */
+      /* App tausta */
+      .stApp{
+        background: radial-gradient(1200px 800px at 15% 10%, #161616 0%, var(--bg) 55%, #070707 100%);
+        color: var(--text);
+      }
+
+      /* Typography tiiviimmäksi */
+      h1 { font-size: 1.55rem !important; letter-spacing: .3px; }
+      h2 { font-size: 1.20rem !important; margin-top: .25rem !important; }
+      h3 { font-size: 1.05rem !important; }
+      p, li, span, div { font-size: 0.95rem; }
+      .block-container { padding-top: 1.0rem; padding-bottom: 1.0rem; }
+      hr { border-color: rgba(255,255,255,0.08) !important; }
+
+      /* Kategoriaotsikko */
+      .kpi-category{
+        margin: 0.25rem 0 0.35rem 0;
+        padding: .35rem .65rem;
+        border-left: 4px solid var(--gold);
+        background: linear-gradient(90deg, rgba(202,166,74,0.12), rgba(202,166,74,0.02));
+        border-radius: 10px;
+        font-weight: 750;
+        letter-spacing: .4px;
+      }
+
+      /* KPI-kortti */
+      .kpi-card{
+        background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: .65rem .75rem .55rem .75rem;
+        box-shadow: 0 10px 24px rgba(0,0,0,0.30);
+        margin-bottom: .75rem;
+        overflow: hidden;
+      }
+
+      .kpi-title{
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:.6rem;
+        margin-bottom:.20rem;
+      }
+
+      .kpi-name{
+        font-weight: 780;
+        letter-spacing:.2px;
+        color: var(--text);
+        font-size: 0.95rem;
+        line-height: 1.15rem;
+
+        flex: 1 1 auto;
+        min-width: 0;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+
+      .kpi-status{
+        font-size: 1.15rem;
+        filter: drop-shadow(0 1px 1px rgba(0,0,0,0.35));
+        flex: 0 0 auto;
+        margin-top: 0.02rem;
+      }
+
+      .kpi-value{
+        font-size: 1.25rem;
+        font-weight: 900;
+        color: var(--gold2);
+        line-height: 1.35rem;
+        margin: .10rem 0 .25rem 0;
+      }
+
+      .kpi-meta{
+        color: var(--muted);
+        font-size: 0.82rem;
+        margin-bottom: .35rem;
+      }
+
+      .js-plotly-plot, .plot-container { background: transparent !important; }
+
+      .risk-box{
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 14px;
+        padding: .65rem .75rem;
+      }
+
+      /* Pienennä ja kultaa ☰-popover-nappia (secondary) */
       button[kind="secondary"]{
         padding: .15rem .45rem !important;
         min-height: 2rem !important;
@@ -36,8 +128,8 @@ st.markdown(
         font-weight: 900 !important;
       }
     </style>
+    """,
     unsafe_allow_html=True,
-)
 )
 
 # --- Pieni navigointivalikko (avaa vain klikillä) ---
@@ -45,107 +137,6 @@ with st.popover("☰"):
     st.markdown("### Valikko")
     st.page_link("pages/2_Board_View.py", label="Board View", icon="📊")
     st.page_link("pages/1_Yllapito.py", label="Ylläpito (päivitys)", icon="🛠️")
-
-# --- Teema: musta-kulta + tiivis board view ---
-st.markdown(
-    """
-    <style>
-      :root{
-        --bg: #0b0b0b;
-        --panel: #111111;
-        --text: #f2f2f2;
-        --muted: #b7b7b7;
-        --gold: #caa64a;
-        --gold2:#e1c36b;
-        --border: rgba(202,166,74,0.22);
-      }
-
-      .stApp{
-        background: radial-gradient(1200px 800px at 15% 10%, #161616 0%, var(--bg) 55%, #070707 100%);
-        color: var(--text);
-      }
-
-      h1 { font-size: 1.55rem !important; letter-spacing: .3px; }
-      h2 { font-size: 1.20rem !important; margin-top: .25rem !important; }
-      h3 { font-size: 1.05rem !important; }
-      p, li, span, div { font-size: 0.95rem; }
-
-      .block-container { padding-top: 1.0rem; padding-bottom: 1.0rem; }
-      hr { border-color: rgba(255,255,255,0.08) !important; }
-
-      .kpi-category{
-        margin: 0.25rem 0 0.35rem 0;
-        padding: .35rem .65rem;
-        border-left: 4px solid var(--gold);
-        background: linear-gradient(90deg, rgba(202,166,74,0.12), rgba(202,166,74,0.02));
-        border-radius: 10px;
-        font-weight: 750;
-        letter-spacing: .4px;
-      }
-
-      .kpi-card{
-        background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: .65rem .75rem .55rem .75rem;
-        box-shadow: 0 10px 24px rgba(0,0,0,0.30);
-        margin-bottom: .75rem;
-
-  /* UUSI: varmistaa ettei sisältö pursua ulos */
-        overflow: hidden;
-}
-
-      .kpi-title{
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        gap:.6rem;
-        margin-bottom:.20rem;
-      }
-      .kpi-title{
-        display:flex;
-        align-items:flex-start;          /* UUSI: ei pakota yhden rivin keskelle */
-        justify-content:space-between;
-        gap:.6rem;
-        margin-bottom:.20rem;
-}
-
-      .kpi-name{
-        font-weight: 780;
-        letter-spacing:.2px;
-        color: var(--text);
-        font-size: 0.95rem;
-        line-height: 1.15rem;
-
-  /* UUSI: sallii pitkän nimen rivittymisen kortin sisällä */
-        flex: 1 1 auto;
-        min-width: 0;                    /* tärkeä flexboxissa, muuten ei wrapaa oikein */
-        white-space: normal;
-        overflow-wrap: anywhere;         /* leikkaa tarvittaessa pitkiä pätkiä */
-        word-break: break-word;
-}
-
-     .kpi-status{
-        font-size: 1.15rem;
-        filter: drop-shadow(0 1px 1px rgba(0,0,0,0.35));
-
-  /* UUSI: pitää liikennevalon omassa tilassaan oikealla */
-        flex: 0 0 auto;
-        margin-top: 0.02rem;
-}
-
-      .js-plotly-plot, .plot-container { background: transparent !important; }
-
-      .risk-box{
-        background: rgba(255,255,255,0.03);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 14px;
-        padding: .65rem .75rem;
-      }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
 
 # --- Supabase yhteys ---
 url = st.secrets["SUPABASE_URL"]
@@ -169,25 +160,21 @@ def get_status(value: float, target: float, warning: float, direction: str) -> s
 
 
 def fmt_value(metric_name: str, v) -> str:
-    """Kevyt muotoilu: eurot/prosentit/asteikot.
-    (Tätä voi laajentaa myöhemmin, mutta nyt pidetään robustina.)
-    """
+    """Kevyt muotoilu euroille/prosenteille/asteikoille."""
     try:
         x = float(v)
     except Exception:
         return str(v)
 
     name = metric_name.lower()
-    if "€" in metric_name or "kassa" in name or "tulos" in name or "tuotot" in name:
-        # euroa, pyöristä kokonaisiin
+    if "kassa" in name or "tulos" in name or "tuotot" in name:
         return f"{x:,.0f} €".replace(",", " ")
-    if "%" in metric_name or " %" in metric_name or "kattavuus" in name or "pysyvyys" in name or "koulutetut" in name:
+    if "%" in metric_name or "kattavuus" in name or "pysyvyys" in name or "koulutetut" in name:
         return f"{x:.0f} %"
     if "tyytyväisyys" in name:
         return f"{x:.1f} / 5"
     if "valmentajamäärä/joukkue" in name:
         return f"{x:.1f}"
-    # oletus
     if abs(x) >= 1000:
         return f"{x:,.0f}".replace(",", " ")
     return f"{x:.1f}" if x % 1 != 0 else f"{x:.0f}"
@@ -203,21 +190,18 @@ if data.empty:
 
 data["date"] = pd.to_datetime(data["date"], errors="coerce")
 
-# --- Uusin snapshot per mittari ---
 latest = (
     data.sort_values("date")
     .groupby("metric", as_index=False)
     .tail(1)
 )
 
-# --- Riskilistat ---
 critical: list[str] = []
 warning_list: list[str] = []
 
 st.caption("Näytetään viimeisin tallennettu arvo per mittari sekä trendi historiadatan perusteella.")
 st.divider()
 
-# --- Mittarien näyttö kategorioittain ---
 for category, metric_list in ALL_METRICS.items():
     st.markdown(f'<div class="kpi-category">{category}</div>', unsafe_allow_html=True)
 
@@ -275,7 +259,6 @@ for category, metric_list in ALL_METRICS.items():
                 )
 
                 trend_data = data[data["metric"] == metric_name].sort_values("date")
-
                 if len(trend_data) > 1:
                     fig = px.line(trend_data, x="date", y="value")
                     fig.update_traces(line_width=2)
@@ -294,7 +277,6 @@ for category, metric_list in ALL_METRICS.items():
 
     st.divider()
 
-# --- Yhteenvetobanneri ---
 st.markdown("## Tilanne nyt")
 c1, c2, c3 = st.columns([1, 1, 3], gap="small")
 
@@ -326,7 +308,7 @@ with c3:
         <div class="risk-box">
           <div style="font-weight:800;">Huomio</div>
           <div style="color: var(--muted);">
-            Hallitusnäkymä on vain luku. Päivitykset tehdään Ylläpito-sivulla ja tallennetaan snapshotina.
+            Board View on vain luku. Päivitykset tehdään Ylläpito-sivulla ja tallennetaan snapshotina.
           </div>
         </div>
         """,
@@ -335,7 +317,6 @@ with c3:
 
 st.divider()
 
-# --- Poikkeamat ---
 st.header("Poikkeamat")
 col1, col2 = st.columns(2)
 
