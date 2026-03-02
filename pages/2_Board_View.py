@@ -52,7 +52,10 @@ st.markdown(
         padding: .65rem .75rem .55rem .75rem;
         box-shadow: 0 10px 24px rgba(0,0,0,0.30);
         margin-bottom: .75rem;
-      }
+
+  /* UUSI: varmistaa ettei sisältö pursua ulos */
+        overflow: hidden;
+}
 
       .kpi-title{
         display:flex;
