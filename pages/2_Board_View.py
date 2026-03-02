@@ -8,25 +8,44 @@ from metrics_definitions import ALL_METRICS  # yhteinen mittarilista
 st.set_page_config(layout="wide")
 st.title("Hallituksen strateginen tilannekuva")
 
-# --- Pieni navigointipainike (popover) ---
-with st.popover("☰", use_container_width=False):
-    st.markdown("### Valikko")
-    st.page_link("pages/1_Yllapito.py", label="Ylläpito (päivitys)", icon="🛠️")
-    st.page_link("pages/2_Board_View.py", label="Board View", icon="📊")
+# --- Piilota Streamlitin oletus-sivupalkki Board View -näkymässä ---
+st.markdown(
+    """
+    <style>
+      [data-testid="stSidebar"] { display: none; }
+      [data-testid="stSidebarNav"] { display: none; }
+      section.main > div { padding-left: 1rem !important; }
+    </style>
+    """,
+    unsafe_allow_html=True,
 
-/* Pienennä popover-nappia (☰) */
-button[kind="secondary"] {
-  padding: .15rem .45rem !important;
-  min-height: 2rem !important;
-  border-radius: 10px !important;
-  border: 1px solid rgba(202,166,74,0.35) !important;
-  background: rgba(202,166,74,0.10) !important;
-  color: #f2f2f2 !important;
-}
-button[kind="secondary"] * {
-  font-size: 1.05rem !important;
-  font-weight: 800 !important;
-}
+st.markdown(
+    """
+    <style>
+      /* Tyylitä "secondary" -nappi (Board View:ssä käytännössä vain ☰) */
+      button[kind="secondary"]{
+        padding: .15rem .45rem !important;
+        min-height: 2rem !important;
+        border-radius: 10px !important;
+        border: 1px solid rgba(202,166,74,0.35) !important;
+        background: rgba(202,166,74,0.10) !important;
+        color: #f2f2f2 !important;
+      }
+      button[kind="secondary"] *{
+        font-size: 1.05rem !important;
+        font-weight: 900 !important;
+      }
+    </style>
+    unsafe_allow_html=True,
+)
+)
+
+# --- Pieni navigointivalikko (avaa vain klikillä) ---
+with st.popover("☰"):
+    st.markdown("### Valikko")
+    st.page_link("pages/2_Board_View.py", label="Board View", icon="📊")
+    st.page_link("pages/1_Yllapito.py", label="Ylläpito (päivitys)", icon="🛠️")
+
 # --- Teema: musta-kulta + tiivis board view ---
 st.markdown(
     """
@@ -123,13 +142,6 @@ st.markdown(
         border-radius: 14px;
         padding: .65rem .75rem;
       }
-
-/* --- Piilota Streamlitin oletus-sivupalkki (Board View) --- */
-[data-testid="stSidebar"] { display: none; }
-[data-testid="stSidebarNav"] { display: none; }
-
-/* Poista tyhjä vasen marginaali, joka joskus jää piilotuksen jälkeen */
-section.main > div { padding-left: 1rem !important; }
     </style>
     """,
     unsafe_allow_html=True,
