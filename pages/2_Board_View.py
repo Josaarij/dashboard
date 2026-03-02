@@ -29,32 +29,7 @@ def get_status(value, target, warning, direction):
             return "🔴"
 
 
-ALL_METRICS = {
-    "ELINVOIMA": [
-        "Pelaajamäärä yht.",
-        "Nettokasvu",
-        "Lopettamis-% 13–15v",
-        "Tyttö-/naispelaajamäärä",
-    ],
-    "TALOUS": [
-        "Kassatilanne + ennuste",
-        "Tulosennuste",
-        "Kattavuus %",
-        "Muut tuotot",
-    ],
-    "VALMENNUS": [
-        "Valmentajien pysyvyys",
-        "Koulutetut %",
-        "Valmentajamäärä/joukkue",
-    ],
-    "LAATU": [
-        "Pelaajatyytyväisyys",
-        "Vanhempien tyytyväisyys",
-        "Valmentajien/taustojen tyytyväisyys",
-        "Huipputasolle nousseet/vuosi",
-        "Valmennuslinjan toteutuminen",
-    ],
-}
+from metrics_definitions import ALL_METRICS
 
 # --- Hae data ---
 response = supabase.table("kpi_snapshots").select("*").execute()
