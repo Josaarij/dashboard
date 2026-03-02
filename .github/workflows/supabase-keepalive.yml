@@ -18,6 +18,8 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
           set -euo pipefail
+          echo "SUPABASE_URL length: ${#SUPABASE_URL}"
+          echo "SUPABASE_ANON_KEY length: ${#SUPABASE_ANON_KEY}"
           ENDPOINT="${SUPABASE_URL}/rest/v1/keepalive?select=id,updated_at&limit=1"
           echo "Pinging: $ENDPOINT"
           curl -sS -X GET "$ENDPOINT" \
