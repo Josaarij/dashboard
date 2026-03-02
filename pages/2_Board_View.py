@@ -135,8 +135,8 @@ def get_status(value, target, warning, direction):
 from metrics_definitions import ALL_METRICS
 
 # --- Hae data ---
-response = supabase.table("kpi_snapshots").select("*").execute()
-data = pd.DataFrame(response.data)
+    response = supabase.table("kpi_snapshots").select("*").execute()
+    data = pd.DataFrame(response.data)
 
 if data.empty:
     st.warning("Ei tallennettua dataa.")
@@ -144,7 +144,7 @@ if data.empty:
 
 # Varmista oikeat tyypit (Supabase palauttaa usein date-stringinä)
 data["date"] = pd.to_datetime(data["date"], errors="coerce")
-with st.expander("DEBUG: mittarinimet ja viimeisimmät rivit", expanded=False):
+    with st.expander("DEBUG: mittarinimet ja viimeisimmät rivit", expanded=False):
     st.write("Tietokannassa olevat metric-nimet:")
     st.dataframe(pd.DataFrame(sorted(data["metric"].dropna().unique()), columns=["metric"]))
 
