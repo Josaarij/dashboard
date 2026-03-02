@@ -3,6 +3,10 @@ import pandas as pd
 from supabase import create_client
 from datetime import datetime
 
+pin = st.text_input("Admin PIN", type="password")
+if pin != st.secrets["ADMIN_PIN"]:
+    st.stop()
+
 st.set_page_config(layout="wide")
 st.title("Ylläpito – mittarien päivitys")
 
