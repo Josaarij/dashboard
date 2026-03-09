@@ -140,7 +140,8 @@ with st.popover("☰"):
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
-
+with st.expander("DEBUG: Supabase connection", expanded=True):
+    st.write("SUPABASE_URL:", url)
 
 def get_status(value: float, target: float, warning: float, direction: str) -> str:
     if direction == "up":
