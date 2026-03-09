@@ -8,7 +8,6 @@ from metrics_definitions import ALL_METRICS
 st.set_page_config(layout="wide")
 st.title("Hallituksen strateginen tilannekuva")
 
-# --- Teema + sivupalkin piilotus + pieni valikkonappi ---
 st.markdown(
     """
     <style>
@@ -34,7 +33,7 @@ st.markdown(
       h2 { font-size: 1.20rem !important; margin-top: .25rem !important; }
       h3 { font-size: 1.05rem !important; }
       p, li, span, div { font-size: 0.95rem; }
-      .block-container { padding-top: 1.0rem; padding-bottom: 1.0rem; }
+      .block-container { padding-top: 1rem; padding-bottom: 1rem; }
       hr { border-color: rgba(255,255,255,0.08) !important; }
 
       .kpi-category{
@@ -106,14 +105,14 @@ st.markdown(
         margin: .25rem 0 .35rem 0;
       }
 
-      .js-plotly-plot, .plot-container { background: transparent !important; }
-
       .risk-box{
         background: rgba(255,255,255,0.03);
         border: 1px solid rgba(255,255,255,0.08);
         border-radius: 14px;
         padding: .65rem .75rem;
       }
+
+      .js-plotly-plot, .plot-container { background: transparent !important; }
 
       button[kind="secondary"]{
         padding: .15rem .45rem !important;
@@ -138,7 +137,6 @@ with st.popover("☰"):
     st.page_link("pages/2_Board_View.py", label="Board View", icon="📊")
     st.page_link("pages/1_Yllapito.py", label="Ylläpito", icon="🛠️")
 
-# --- Supabase yhteys ---
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
@@ -151,7 +149,6 @@ def get_status(value: float, target: float, warning: float, direction: str) -> s
         if value >= warning:
             return "🟡"
         return "🔴"
-
     if value <= target:
         return "🟢"
     if value <= warning:
@@ -169,30 +166,18 @@ def fmt_value(metric_name: str, v) -> str:
 
     if "kassa" in name or "tulos" in name or "tuotot" in name:
         return f"{x:,.0f} €".replace(",", " ")
-
     if "%" in metric_name or "kattavuus" in name or "pysyvyys" in name or "koulutetut" in name:
         return f"{x:.0f} %"
-
     if "tyytyväisyys" in name:
         return f"{x:.1f} / 5"
-
     if "valmentajamäärä/joukkue" in name:
         return f"{x:.1f}"
-
     if abs(x) >= 1000:
         return f"{x:,.0f}".replace(",", " ")
-
     return f"{x:.1f}" if x % 1 != 0 else f"{x:.0f}"
 
 
 def calculate_cash_forecast(cash_history: pd.DataFrame):
-    """
-    Laskee kassahistorian perusteella:
-    - viimeisin toteuma
-    - keskimääräinen kk-muutos
-    - volatiliteetti
-    - 6 kk ennusteet (varovainen, perus, optimistinen)
-    """
     if cash_history.empty or len(cash_history) < 2:
         return None
 
@@ -226,50 +211,8 @@ def calculate_cash_forecast(cash_history: pd.DataFrame):
         "base_6m": base_6m,
         "optimistic_6m": optimistic_6m,
     }
-    """
-    Laskee kassahistorian perusteella:
-    - viimeisin toteuma
-    - keskimääräinen kk-muutos
-    - volatiliteetti
-    - 6 kk ennusteet (varovainen, perus, optimistinen)
-    """
-    if cash_history.empty or len(cash_history) < 2:
-        return None
-
-    df = cash_history.copy()
-    df = df.sort_values("date")
-    df["date"] = pd.to_datetime(df["date"], errors="coerce")
-    df["value"] = pd.to_numeric(df["value"], errors="coerce")
-    df = df.dropna(subset=["date", "value"])
-
-    if len(df) < 2:
-        return None
-
-    df["delta"] = df["value"].diff()
-    deltas = df["delta"].dropna()
-
-    if len(deltas) == 0:
-        return None
-
-    latest_value = float(df["value"].iloc[-1])
-    avg_change = float(deltas.mean())
-    volatility = float(deltas.std()) if len(deltas) > 1 else 0.0
-
-    cautious_6m = latest_value + 6 * (avg_change - volatility)
-    base_6m = latest_value + 6 * avg_change
-    optimistic_6m = latest_value + 6 * (avg_change + volatility)
-
-    return {
-        "latest": latest_value,
-        "avg_change": avg_change,
-        "volatility": volatility,
-        "cautious_6m": cautious_6m,
-        "base_6m": base_6m,
-        "optimistic_6m": optimistic_6m,
-    }
 
 
-# --- Hae data ---
 resp = supabase.table("kpi_snapshots").select("*").execute()
 data = pd.DataFrame(resp.data)
 
@@ -277,13 +220,10 @@ if data.empty:
     st.warning("Ei tallennettua dataa.")
     st.stop()
 
-# Muunna tyypit turvallisesti
 data["date"] = pd.to_datetime(data["date"], errors="coerce")
 data["value"] = pd.to_numeric(data["value"], errors="coerce")
 data["target"] = pd.to_numeric(data["target"], errors="coerce")
 data["warning"] = pd.to_numeric(data["warning"], errors="coerce")
-
-# Pudota rivit, joista ei saada käyttökelpoista päivämäärää tai arvoa
 data = data.dropna(subset=["date", "value"]).copy()
 
 if data.empty:
@@ -359,8 +299,17 @@ for category, metric_list in ALL_METRICS.items():
                 )
 
                 if metric_name == "Kassatilanne + ennuste":
-                    cash_history = data[data["metric"] == metric_name].sort_values("date")
+                    cash_history = (
+                        data[data["metric"] == metric_name]
+                        .dropna(subset=["date", "value"])
+                        .sort_values("date")
+                        .copy()
+                    )
+
                     forecast = calculate_cash_forecast(cash_history)
+
+                    with st.expander("DEBUG: kassahistoria", expanded=False):
+                        st.dataframe(cash_history[["date", "value"]], use_container_width=True)
 
                     if forecast is not None:
                         st.markdown(
@@ -378,16 +327,26 @@ for category, metric_list in ALL_METRICS.items():
                             """,
                             unsafe_allow_html=True,
                         )
+                    else:
+                        st.markdown(
+                            """
+                            <div class="kpi-card" style="margin-top:-0.35rem;">
+                              <div class="forecast-title">Kassaennuste</div>
+                              <div class="kpi-meta">Ennustetta ei voitu laskea. Tarkista kassahistorian päivämäärät ja arvot.</div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
 
                 trend_data = (
-    data[data["metric"] == metric_name]
-    .dropna(subset=["date", "value"])
-    .sort_values("date")
-    .copy()
-)
+                    data[data["metric"] == metric_name]
+                    .dropna(subset=["date", "value"])
+                    .sort_values("date")
+                    .copy()
+                )
 
-if len(trend_data) > 1:
-    fig = px.line(trend_data, x="date", y="value")
+                if len(trend_data) > 1:
+                    fig = px.line(trend_data, x="date", y="value")
                     fig.update_traces(line_width=2)
                     fig.update_layout(
                         height=140,
