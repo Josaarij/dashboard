@@ -161,7 +161,29 @@ def fmt_value(metric_name: str, v) -> str:
         x = float(v)
     except Exception:
         return str(v)
+def prepare_time_series(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Yhtenäistää aikajanan:
+    - ottaa date-kentästä päiväosan
+    - muuntaa value numeeriseksi
+    - poistaa virheelliset rivit
+    - poistaa duplikaatit saman päivän osalta
+    """
+    out = df.copy()
 
+    out["date_clean"] = pd.to_datetime(
+        out["date"].astype(str).str[:10],
+        errors="coerce"
+    )
+    out["value"] = pd.to_numeric(out["value"], errors="coerce")
+
+    out = out.dropna(subset=["date_clean", "value"]).copy()
+    out = out.sort_values("date_clean")
+
+    # Jos samalle päivälle on useampi rivi, jätetään viimeinen
+    out = out.drop_duplicates(subset=["date_clean"], keep="last")
+
+    return out
     name = metric_name.lower()
 
     if "kassa" in name or "tulos" in name or "tuotot" in name:
