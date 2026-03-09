@@ -161,6 +161,22 @@ def fmt_value(metric_name: str, v) -> str:
         x = float(v)
     except Exception:
         return str(v)
+
+    name = metric_name.lower()
+
+    if "kassa" in name or "tulos" in name or "tuotot" in name:
+        return f"{x:,.0f} €".replace(",", " ")
+    if "%" in metric_name or "kattavuus" in name or "pysyvyys" in name or "koulutetut" in name:
+        return f"{x:.0f} %"
+    if "tyytyväisyys" in name:
+        return f"{x:.1f} / 5"
+    if "valmentajamäärä/joukkue" in name:
+        return f"{x:.1f}"
+    if abs(x) >= 1000:
+        return f"{x:,.0f}".replace(",", " ")
+    return f"{x:.1f}" if x % 1 != 0 else f"{x:.0f}"
+
+
 def prepare_time_series(df: pd.DataFrame) -> pd.DataFrame:
     """
     Yhtenäistää aikajanan:
@@ -184,29 +200,10 @@ def prepare_time_series(df: pd.DataFrame) -> pd.DataFrame:
     out = out.drop_duplicates(subset=["date_clean"], keep="last")
 
     return out
-    name = metric_name.lower()
-
-    if "kassa" in name or "tulos" in name or "tuotot" in name:
-        return f"{x:,.0f} €".replace(",", " ")
-    if "%" in metric_name or "kattavuus" in name or "pysyvyys" in name or "koulutetut" in name:
-        return f"{x:.0f} %"
-    if "tyytyväisyys" in name:
-        return f"{x:.1f} / 5"
-    if "valmentajamäärä/joukkue" in name:
-        return f"{x:.1f}"
-    if abs(x) >= 1000:
-        return f"{x:,.0f}".replace(",", " ")
-    return f"{x:.1f}" if x % 1 != 0 else f"{x:.0f}"
 
 
 def calculate_cash_forecast(cash_history: pd.DataFrame):
-    if cash_history.empty or len(cash_history) < 2:
-        return None
-
-    df = cash_history.copy()
-    df["date"] = pd.to_datetime(df["date"], errors="coerce")
-    df["value"] = pd.to_numeric(df["value"], errors="coerce")
-    df = df.dropna(subset=["date", "value"]).sort_values("date").copy()
+    df = prepare_time_series(cash_history)
 
     if len(df) < 2:
         return None
@@ -214,7 +211,7 @@ def calculate_cash_forecast(cash_history: pd.DataFrame):
     df["delta"] = df["value"].diff()
     deltas = df["delta"].dropna()
 
-    if len(deltas) == 0:
+    if len(deltas) < 1:
         return None
 
     latest_value = float(df["value"].iloc[-1])
@@ -321,17 +318,17 @@ for category, metric_list in ALL_METRICS.items():
                 )
 
                 if metric_name == "Kassatilanne + ennuste":
-                    cash_history = (
-                        data[data["metric"] == metric_name]
-                        .dropna(subset=["date", "value"])
-                        .sort_values("date")
-                        .copy()
+                    cash_history = prepare_time_series(
+                        data[data["metric"] == metric_name].copy()
                     )
 
                     forecast = calculate_cash_forecast(cash_history)
 
                     with st.expander("DEBUG: kassahistoria", expanded=False):
-                        st.dataframe(cash_history[["date", "value"]], use_container_width=True)
+                        st.dataframe(
+                            cash_history[["date_clean", "value"]],
+                            use_container_width=True
+                        )
 
                     if forecast is not None:
                         st.markdown(
@@ -360,15 +357,12 @@ for category, metric_list in ALL_METRICS.items():
                             unsafe_allow_html=True,
                         )
 
-                trend_data = (
-                    data[data["metric"] == metric_name]
-                    .dropna(subset=["date", "value"])
-                    .sort_values("date")
-                    .copy()
+                trend_data = prepare_time_series(
+                    data[data["metric"] == metric_name].copy()
                 )
 
                 if len(trend_data) > 1:
-                    fig = px.line(trend_data, x="date", y="value")
+                    fig = px.line(trend_data, x="date_clean", y="value")
                     fig.update_traces(line_width=2)
                     fig.update_layout(
                         height=140,
