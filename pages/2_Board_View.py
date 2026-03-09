@@ -237,7 +237,18 @@ if data.empty:
     st.warning("Ei tallennettua dataa.")
     st.stop()
 
+# Muunna tyypit turvallisesti
 data["date"] = pd.to_datetime(data["date"], errors="coerce")
+data["value"] = pd.to_numeric(data["value"], errors="coerce")
+data["target"] = pd.to_numeric(data["target"], errors="coerce")
+data["warning"] = pd.to_numeric(data["warning"], errors="coerce")
+
+# Pudota rivit, joista ei saada käyttökelpoista päivämäärää tai arvoa
+data = data.dropna(subset=["date", "value"]).copy()
+
+if data.empty:
+    st.warning("Tallennettu data ei sisällä käyttökelpoisia päivämääriä tai arvoja.")
+    st.stop()
 
 latest = (
     data.sort_values("date")
