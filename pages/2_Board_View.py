@@ -3,12 +3,12 @@ import pandas as pd
 import plotly.express as px
 from supabase import create_client
 
-from metrics_definitions import ALL_METRICS  # yhteinen mittarilista
+from metrics_definitions import ALL_METRICS
 
 st.set_page_config(layout="wide")
 st.title("Hallituksen strateginen tilannekuva")
 
-# --- Teema + sivupalkin piilotus + pieni valikkonappi (☰) ---
+# --- Teema + sivupalkin piilotus + pieni valikkonappi ---
 st.markdown(
     """
     <style>
@@ -21,18 +21,15 @@ st.markdown(
         --border: rgba(202,166,74,0.22);
       }
 
-      /* Piilota Streamlitin oletus-sivupalkki ja nav */
       [data-testid="stSidebar"] { display: none; }
       [data-testid="stSidebarNav"] { display: none; }
       section.main > div { padding-left: 1rem !important; }
 
-      /* App tausta */
       .stApp{
         background: radial-gradient(1200px 800px at 15% 10%, #161616 0%, var(--bg) 55%, #070707 100%);
         color: var(--text);
       }
 
-      /* Typography tiiviimmäksi */
       h1 { font-size: 1.55rem !important; letter-spacing: .3px; }
       h2 { font-size: 1.20rem !important; margin-top: .25rem !important; }
       h3 { font-size: 1.05rem !important; }
@@ -40,7 +37,6 @@ st.markdown(
       .block-container { padding-top: 1.0rem; padding-bottom: 1.0rem; }
       hr { border-color: rgba(255,255,255,0.08) !important; }
 
-      /* Kategoriaotsikko */
       .kpi-category{
         margin: 0.25rem 0 0.35rem 0;
         padding: .35rem .65rem;
@@ -51,7 +47,6 @@ st.markdown(
         letter-spacing: .4px;
       }
 
-      /* KPI-kortti */
       .kpi-card{
         background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
         border: 1px solid var(--border);
@@ -76,7 +71,6 @@ st.markdown(
         color: var(--text);
         font-size: 0.95rem;
         line-height: 1.15rem;
-
         flex: 1 1 auto;
         min-width: 0;
         white-space: normal;
@@ -102,7 +96,14 @@ st.markdown(
       .kpi-meta{
         color: var(--muted);
         font-size: 0.82rem;
-        margin-bottom: .35rem;
+        margin-bottom: .25rem;
+      }
+
+      .forecast-title{
+        color: var(--gold2);
+        font-size: 0.88rem;
+        font-weight: 800;
+        margin: .25rem 0 .35rem 0;
       }
 
       .js-plotly-plot, .plot-container { background: transparent !important; }
@@ -114,7 +115,6 @@ st.markdown(
         padding: .65rem .75rem;
       }
 
-      /* Pienennä ja kultaa ☰-popover-nappia (secondary) */
       button[kind="secondary"]{
         padding: .15rem .45rem !important;
         min-height: 2rem !important;
@@ -123,6 +123,7 @@ st.markdown(
         background: rgba(202,166,74,0.10) !important;
         color: #f2f2f2 !important;
       }
+
       button[kind="secondary"] *{
         font-size: 1.05rem !important;
         font-weight: 900 !important;
@@ -132,18 +133,17 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- Pieni navigointivalikko (avaa vain klikillä) ---
 with st.popover("☰"):
     st.markdown("### Valikko")
     st.page_link("pages/2_Board_View.py", label="Board View", icon="📊")
-    st.page_link("pages/1_Yllapito.py", label="Ylläpito (päivitys)", icon="🛠️")
+    st.page_link("pages/1_Yllapito.py", label="Ylläpito", icon="🛠️")
 
 # --- Supabase yhteys ---
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
-# --- Statuslogiikka ---
+
 def get_status(value: float, target: float, warning: float, direction: str) -> str:
     if direction == "up":
         if value >= target:
@@ -151,7 +151,7 @@ def get_status(value: float, target: float, warning: float, direction: str) -> s
         if value >= warning:
             return "🟡"
         return "🔴"
-    # direction == "down"
+
     if value <= target:
         return "🟢"
     if value <= warning:
@@ -160,24 +160,30 @@ def get_status(value: float, target: float, warning: float, direction: str) -> s
 
 
 def fmt_value(metric_name: str, v) -> str:
-    """Kevyt muotoilu euroille/prosenteille/asteikoille."""
     try:
         x = float(v)
     except Exception:
         return str(v)
 
     name = metric_name.lower()
+
     if "kassa" in name or "tulos" in name or "tuotot" in name:
         return f"{x:,.0f} €".replace(",", " ")
+
     if "%" in metric_name or "kattavuus" in name or "pysyvyys" in name or "koulutetut" in name:
         return f"{x:.0f} %"
+
     if "tyytyväisyys" in name:
         return f"{x:.1f} / 5"
+
     if "valmentajamäärä/joukkue" in name:
         return f"{x:.1f}"
+
     if abs(x) >= 1000:
         return f"{x:,.0f}".replace(",", " ")
+
     return f"{x:.1f}" if x % 1 != 0 else f"{x:.0f}"
+
 
 def calculate_cash_forecast(cash_history: pd.DataFrame):
     """
@@ -186,10 +192,6 @@ def calculate_cash_forecast(cash_history: pd.DataFrame):
     - keskimääräinen kk-muutos
     - volatiliteetti
     - 6 kk ennusteet (varovainen, perus, optimistinen)
-
-    Olettaa että cash_history sisältää sarakkeet:
-    - date
-    - value
     """
     if cash_history.empty or len(cash_history) < 2:
         return None
@@ -203,7 +205,6 @@ def calculate_cash_forecast(cash_history: pd.DataFrame):
     if len(df) < 2:
         return None
 
-    # Käytetään suoraan peräkkäisten snapshotien muutoksia
     df["delta"] = df["value"].diff()
     deltas = df["delta"].dropna()
 
@@ -227,6 +228,7 @@ def calculate_cash_forecast(cash_history: pd.DataFrame):
         "optimistic_6m": optimistic_6m,
     }
 
+
 # --- Hae data ---
 resp = supabase.table("kpi_snapshots").select("*").execute()
 data = pd.DataFrame(resp.data)
@@ -243,8 +245,8 @@ latest = (
     .tail(1)
 )
 
-critical: list[str] = []
-warning_list: list[str] = []
+critical = []
+warning_list = []
 
 st.caption("Näytetään viimeisin tallennettu arvo per mittari sekä trendi historiadatan perusteella.")
 st.divider()
@@ -304,18 +306,20 @@ for category, metric_list in ALL_METRICS.items():
                     """,
                     unsafe_allow_html=True,
                 )
-                                if metric_name == "Kassatilanne + ennuste":
+
+                if metric_name == "Kassatilanne + ennuste":
                     cash_history = data[data["metric"] == metric_name].sort_values("date")
                     forecast = calculate_cash_forecast(cash_history)
 
-                if forecast is not None:
+                    if forecast is not None:
                         st.markdown(
                             f"""
                             <div class="kpi-card" style="margin-top:-0.35rem;">
+                              <div class="forecast-title">Kassaennuste</div>
                               <div class="kpi-meta"><strong>Viimeisin toteuma:</strong> {fmt_value(metric_name, forecast['latest'])}</div>
                               <div class="kpi-meta"><strong>Keskimääräinen kk-muutos:</strong> {fmt_value(metric_name, forecast['avg_change'])}</div>
                               <div class="kpi-meta"><strong>Volatiliteetti:</strong> {fmt_value(metric_name, forecast['volatility'])}</div>
-                              <div class="kpi-meta" style="margin-top:0.35rem;"><strong>6 kk perusennuste</strong></div>
+                              <div class="kpi-meta" style="margin-top:0.35rem;"><strong>6 kk ennuste</strong></div>
                               <div class="kpi-meta">Varovainen: {fmt_value(metric_name, forecast['cautious_6m'])}</div>
                               <div class="kpi-meta">Perus: {fmt_value(metric_name, forecast['base_6m'])}</div>
                               <div class="kpi-meta">Optimistinen: {fmt_value(metric_name, forecast['optimistic_6m'])}</div>
@@ -323,7 +327,9 @@ for category, metric_list in ALL_METRICS.items():
                             """,
                             unsafe_allow_html=True,
                         )
+
                 trend_data = data[data["metric"] == metric_name].sort_values("date")
+
                 if len(trend_data) > 1:
                     fig = px.line(trend_data, x="date", y="value")
                     fig.update_traces(line_width=2)
