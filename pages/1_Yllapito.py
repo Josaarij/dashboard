@@ -79,7 +79,11 @@ if not hist.empty:
             "direction": str(r["direction"]),
         }
 
-st.caption("Syötä arvot ja rajat. Lopuksi tallenna snapshot. Tallennus tekee yhden rivin per mittari Supabaseen.")
+st.caption(
+    "Syötä arvot ja rajat. Lopuksi tallenna snapshot. "
+    "Tallennus tekee yhden rivin per mittari Supabaseen. "
+    "Kassatilanne + ennuste -mittarin 6 kk ennuste lasketaan Board View'ssa automaattisesti historiadatan perusteella."
+)
 st.divider()
 
 # --- Lomake: kaikki mittarit ---
