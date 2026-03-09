@@ -304,7 +304,25 @@ for category, metric_list in ALL_METRICS.items():
                     """,
                     unsafe_allow_html=True,
                 )
+                                if metric_name == "Kassatilanne + ennuste":
+                    cash_history = data[data["metric"] == metric_name].sort_values("date")
+                    forecast = calculate_cash_forecast(cash_history)
 
+                if forecast is not None:
+                        st.markdown(
+                            f"""
+                            <div class="kpi-card" style="margin-top:-0.35rem;">
+                              <div class="kpi-meta"><strong>Viimeisin toteuma:</strong> {fmt_value(metric_name, forecast['latest'])}</div>
+                              <div class="kpi-meta"><strong>Keskimääräinen kk-muutos:</strong> {fmt_value(metric_name, forecast['avg_change'])}</div>
+                              <div class="kpi-meta"><strong>Volatiliteetti:</strong> {fmt_value(metric_name, forecast['volatility'])}</div>
+                              <div class="kpi-meta" style="margin-top:0.35rem;"><strong>6 kk perusennuste</strong></div>
+                              <div class="kpi-meta">Varovainen: {fmt_value(metric_name, forecast['cautious_6m'])}</div>
+                              <div class="kpi-meta">Perus: {fmt_value(metric_name, forecast['base_6m'])}</div>
+                              <div class="kpi-meta">Optimistinen: {fmt_value(metric_name, forecast['optimistic_6m'])}</div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
                 trend_data = data[data["metric"] == metric_name].sort_values("date")
                 if len(trend_data) > 1:
                     fig = px.line(trend_data, x="date", y="value")
