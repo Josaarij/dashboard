@@ -47,7 +47,14 @@ DEFAULTS = {
     "Tulosennuste": {"value": 12000, "target": 0, "warning": -20000, "direction": "up"},
     "Kattavuus % (maksut/kulut)": {"value": 102, "target": 100, "warning": 95, "direction": "up"},
     "Muut tuotot": {"value": 35000, "target": 30000, "warning": 20000, "direction": "up"},
-
+    
+    "Kassa – viimeisin toteuma": {"value": 136277.54, "target": 120000, "warning": 80000, "direction": "up"},
+    "Kassa – keskimääräinen kk-muutos": {"value": 0, "target": 0, "warning": -20000, "direction": "up"},
+    "Kassa – volatiliteetti": {"value": 0, "target": 50000, "warning": 80000, "direction": "down"},
+    "Kassa 6 kk – varovainen": {"value": 120000, "target": 120000, "warning": 80000, "direction": "up"},
+    "Kassa 6 kk – perus": {"value": 140000, "target": 120000, "warning": 80000, "direction": "up"},
+    "Kassa 6 kk – optimistinen": {"value": 160000, "target": 120000, "warning": 80000, "direction": "up"},
+    
     "Valmentajien pysyvyys": {"value": 85, "target": 90, "warning": 75, "direction": "up"},
     "Koulutetut %": {"value": 72, "target": 80, "warning": 60, "direction": "up"},
     "Valmentajamäärä/joukkue": {"value": 2.1, "target": 2.0, "warning": 1.5, "direction": "up"},
@@ -82,7 +89,7 @@ if not hist.empty:
 st.caption(
     "Syötä arvot ja rajat. Lopuksi tallenna snapshot. "
     "Tallennus tekee yhden rivin per mittari Supabaseen. "
-    "Kassatilanne + ennuste -mittarin 6 kk ennuste lasketaan Board View'ssa automaattisesti historiadatan perusteella."
+    "Kassan ennusteluvut päivitetään käsin Excel-mallista."
 )
 st.divider()
 
