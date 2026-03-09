@@ -353,18 +353,29 @@ for category, metric_list in ALL_METRICS.items():
                     unsafe_allow_html=True,
                 )
 
-                if metric_name == "Kassatilanne + ennuste":
-                    cash_history = prepare_time_series(
-                        data[data["metric"] == metric_name].copy()
-                    )
+             if metric_name == "Kassatilanne + ennuste":
+                 raw_cash_history = data[data["metric"] == metric_name].copy()
+                 cash_history = prepare_time_series(raw_cash_history)
 
-                    forecast = calculate_cash_forecast(cash_history)
+                 forecast = calculate_cash_forecast(raw_cash_history)
 
-                    with st.expander("DEBUG: kassahistoria", expanded=False):
-                        st.dataframe(
-                            cash_history[["date_clean", "value"]],
-                            use_container_width=True
-                        )
+                 with st.expander("DEBUG: kassahistoria", expanded=True):
+                     st.write(f"Raakarivejä yhteensä: {len(raw_cash_history)}")
+                     if not raw_cash_history.empty:
+                         st.dataframe(
+                             raw_cash_history[["date", "value", "target", "warning", "direction"]],
+                             use_container_width=True
+            )
+
+                     st.write(f"Siivottuja rivejä yhteensä: {len(cash_history)}")
+                     if not cash_history.empty:
+                         cols_to_show = ["date", "date_clean", "value"]
+                         if "value_clean" in cash_history.columns:
+                             cols_to_show.append("value_clean")
+                     st.dataframe(
+                         cash_history[cols_to_show],
+                         use_container_width=True
+            )
 
                     if forecast is not None:
                         st.markdown(
