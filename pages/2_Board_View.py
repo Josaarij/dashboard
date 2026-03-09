@@ -179,6 +179,53 @@ def fmt_value(metric_name: str, v) -> str:
         return f"{x:,.0f}".replace(",", " ")
     return f"{x:.1f}" if x % 1 != 0 else f"{x:.0f}"
 
+def calculate_cash_forecast(cash_history: pd.DataFrame):
+    """
+    Laskee kassahistorian perusteella:
+    - viimeisin toteuma
+    - keskimääräinen kk-muutos
+    - volatiliteetti
+    - 6 kk ennusteet (varovainen, perus, optimistinen)
+
+    Olettaa että cash_history sisältää sarakkeet:
+    - date
+    - value
+    """
+    if cash_history.empty or len(cash_history) < 2:
+        return None
+
+    df = cash_history.copy()
+    df = df.sort_values("date")
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df["value"] = pd.to_numeric(df["value"], errors="coerce")
+    df = df.dropna(subset=["date", "value"])
+
+    if len(df) < 2:
+        return None
+
+    # Käytetään suoraan peräkkäisten snapshotien muutoksia
+    df["delta"] = df["value"].diff()
+    deltas = df["delta"].dropna()
+
+    if len(deltas) == 0:
+        return None
+
+    latest_value = float(df["value"].iloc[-1])
+    avg_change = float(deltas.mean())
+    volatility = float(deltas.std()) if len(deltas) > 1 else 0.0
+
+    cautious_6m = latest_value + 6 * (avg_change - volatility)
+    base_6m = latest_value + 6 * avg_change
+    optimistic_6m = latest_value + 6 * (avg_change + volatility)
+
+    return {
+        "latest": latest_value,
+        "avg_change": avg_change,
+        "volatility": volatility,
+        "cautious_6m": cautious_6m,
+        "base_6m": base_6m,
+        "optimistic_6m": optimistic_6m,
+    }
 
 # --- Hae data ---
 resp = supabase.table("kpi_snapshots").select("*").execute()
