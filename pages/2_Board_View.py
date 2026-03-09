@@ -270,7 +270,10 @@ def calculate_cash_forecast(cash_history: pd.DataFrame):
 
 resp = supabase.table("kpi_snapshots").select("*").execute()
 data = pd.DataFrame(resp.data)
-
+with st.expander("DEBUG: raw cash rows from Supabase", expanded=True):
+    raw_cash = data[data["metric"] == "Kassatilanne + ennuste"].copy()
+    st.write(f"Rivejä yhteensä: {len(raw_cash)}")
+    st.dataframe(raw_cash[["id", "date", "metric", "value"]], use_container_width=True)
 if data.empty:
     st.warning("Ei tallennettua dataa.")
     st.stop()
