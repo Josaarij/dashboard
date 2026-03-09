@@ -181,6 +181,42 @@ def prepare_time_series(df: pd.DataFrame) -> pd.DataFrame:
     """
     Yhtenäistää aikajanan:
     - ottaa date-kentästä päiväosan
+    - muuntaa value numeeriseksi myös jos mukana on pilkkuja
+    - poistaa virheelliset rivit
+    - poistaa duplikaatit saman päivän osalta
+    """
+    out = df.copy()
+
+    # Päivämäärä: ota aina vain YYYY-MM-DD alkuosa
+    out["date_clean"] = pd.to_datetime(
+        out["date"].astype(str).str[:10],
+        errors="coerce"
+    )
+
+    # Arvo: salli myös pilkku desimaalierottimena
+    out["value_clean"] = (
+        out["value"]
+        .astype(str)
+        .str.replace("\u00a0", "", regex=False)   # poista mahdollinen non-breaking space
+        .str.replace(" ", "", regex=False)        # poista välilyönnit
+        .str.replace(",", ".", regex=False)       # pilkku -> piste
+    )
+
+    out["value_clean"] = pd.to_numeric(out["value_clean"], errors="coerce")
+
+    out = out.dropna(subset=["date_clean", "value_clean"]).copy()
+    out = out.sort_values("date_clean")
+
+    # Jos samalle päivälle on useampi rivi, jätetään viimeinen
+    out = out.drop_duplicates(subset=["date_clean"], keep="last")
+
+    # Käytetään siivottua arvoa jatkossa
+    out["value"] = out["value_clean"]
+
+    return out
+    """
+    Yhtenäistää aikajanan:
+    - ottaa date-kentästä päiväosan
     - muuntaa value numeeriseksi
     - poistaa virheelliset rivit
     - poistaa duplikaatit saman päivän osalta
