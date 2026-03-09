@@ -317,7 +317,7 @@ for category, metric_list in ALL_METRICS.items():
                     st.markdown(
                         f"""
                         <div class="kpi-card" style="margin-top:-0.35rem;">
-                          <div class="forecast-title">Kassaennuste (Excelistä syötetty)</div>
+                          <div class="forecast-title">Kassaennuste </div>
                           <div class="kpi-meta"><strong>Viimeisin toteuma:</strong> {get_detail_value("Kassa – viimeisin toteuma")}</div>
                           <div class="kpi-meta"><strong>Keskimääräinen kk-muutos:</strong> {get_detail_value("Kassa – keskimääräinen kk-muutos")}</div>
                           <div class="kpi-meta"><strong>Volatiliteetti:</strong> {get_detail_value("Kassa – volatiliteetti")}</div>
