@@ -140,8 +140,14 @@ with st.popover("☰"):
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
-with st.expander("DEBUG: Supabase connection", expanded=True):
-    st.write("SUPABASE_URL:", url)
+
+
+def clean_number(v):
+    return pd.to_numeric(
+        str(v).replace("\u00a0", "").replace(" ", "").replace(",", "."),
+        errors="coerce"
+    )
+
 
 def get_status(value: float, target: float, warning: float, direction: str) -> str:
     if direction == "up":
@@ -155,13 +161,6 @@ def get_status(value: float, target: float, warning: float, direction: str) -> s
     if value <= warning:
         return "🟡"
     return "🔴"
-
-
-def clean_number(v):
-    return pd.to_numeric(
-        str(v).replace("\u00a0", "").replace(" ", "").replace(",", "."),
-        errors="coerce"
-    )
 
 
 def fmt_value(metric_name: str, v) -> str:
@@ -186,48 +185,13 @@ def fmt_value(metric_name: str, v) -> str:
 
 def prepare_time_series(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
-
     out["date_clean"] = pd.to_datetime(out["date"], errors="coerce")
     out["value_clean"] = out["value"].apply(clean_number)
-
     out = out.dropna(subset=["date_clean", "value_clean"]).copy()
     out = out.sort_values("date_clean")
-
-    # Jos samalle päivälle on useampi rivi, jätetään viimeinen
     out = out.drop_duplicates(subset=["date_clean"], keep="last")
-
     out["value"] = out["value_clean"]
     return out
-
-
-def calculate_cash_forecast(cash_history: pd.DataFrame):
-    df = prepare_time_series(cash_history)
-
-    if len(df) < 2:
-        return None
-
-    df["delta"] = df["value"].diff()
-    deltas = df["delta"].dropna()
-
-    if len(deltas) < 1:
-        return None
-
-    latest_value = float(df["value"].iloc[-1])
-    avg_change = float(deltas.mean())
-    volatility = float(deltas.std()) if len(deltas) > 1 else 0.0
-
-    cautious_6m = latest_value + 6 * (avg_change - volatility)
-    base_6m = latest_value + 6 * avg_change
-    optimistic_6m = latest_value + 6 * (avg_change + volatility)
-
-    return {
-        "latest": latest_value,
-        "avg_change": avg_change,
-        "volatility": volatility,
-        "cautious_6m": cautious_6m,
-        "base_6m": base_6m,
-        "optimistic_6m": optimistic_6m,
-    }
 
 
 resp = supabase.table("kpi_snapshots").select("*").execute()
@@ -237,13 +201,8 @@ if data.empty:
     st.warning("Ei tallennettua dataa.")
     st.stop()
 
-# Pidetään raw-data mahdollisimman muuttumattomana
 data["date"] = pd.to_datetime(data["date"], errors="coerce")
 data = data.dropna(subset=["date"]).copy()
-
-if data.empty:
-    st.warning("Tallennettu data ei sisällä käyttökelpoisia päivämääriä.")
-    st.stop()
 
 latest = (
     data.sort_values("date")
@@ -251,29 +210,38 @@ latest = (
     .tail(1)
 )
 
+latest_by_metric = {}
+for _, row in latest.iterrows():
+    latest_by_metric[row["metric"]] = row
+
 critical = []
 warning_list = []
+
+cash_detail_metrics = [
+    "Kassa – viimeisin toteuma",
+    "Kassa – keskimääräinen kk-muutos",
+    "Kassa – volatiliteetti",
+    "Kassa 6 kk – varovainen",
+    "Kassa 6 kk – perus",
+    "Kassa 6 kk – optimistinen",
+]
 
 st.caption("Näytetään viimeisin tallennettu arvo per mittari sekä trendi historiadatan perusteella.")
 st.divider()
 
-# Raw-debug kassalle
-with st.expander("DEBUG: raw cash rows from Supabase", expanded=False):
-    raw_cash = data[data["metric"] == "Kassatilanne + ennuste"].copy()
-    st.write(f"Rivejä yhteensä: {len(raw_cash)}")
-    st.dataframe(raw_cash[["id", "date", "metric", "value"]], use_container_width=True)
-
 for category, metric_list in ALL_METRICS.items():
     st.markdown(f'<div class="kpi-category">{category}</div>', unsafe_allow_html=True)
+
+    visible_metrics = [m for m in metric_list if m not in cash_detail_metrics]
 
     cols = st.columns(4, gap="small")
     i = 0
 
-    for metric_name in metric_list:
-        metric_row = latest[latest["metric"] == metric_name]
+    for metric_name in visible_metrics:
+        metric_row = latest_by_metric.get(metric_name)
 
         with cols[i % 4]:
-            if metric_row.empty:
+            if metric_row is None:
                 st.markdown(
                     f"""
                     <div class="kpi-card">
@@ -288,12 +256,10 @@ for category, metric_list in ALL_METRICS.items():
                     unsafe_allow_html=True,
                 )
             else:
-                row = metric_row.iloc[0]
-
-                value = clean_number(row["value"])
-                target = clean_number(row["target"])
-                warning = clean_number(row["warning"])
-                direction = str(row["direction"])
+                value = clean_number(metric_row["value"])
+                target = clean_number(metric_row["target"])
+                warning = clean_number(metric_row["warning"])
+                direction = str(metric_row["direction"])
 
                 if pd.isna(value) or pd.isna(target) or pd.isna(warning):
                     st.markdown(
@@ -338,43 +304,31 @@ for category, metric_list in ALL_METRICS.items():
                 )
 
                 if metric_name == "Kassatilanne + ennuste":
-                    cash_raw = data[data["metric"] == metric_name].copy()
-                    cash_history = prepare_time_series(cash_raw)
-                    forecast = calculate_cash_forecast(cash_raw)
+                    latest_cash_rows = {}
+                    for detail_metric in cash_detail_metrics:
+                        latest_cash_rows[detail_metric] = latest_by_metric.get(detail_metric)
 
-                    with st.expander("DEBUG: kassahistoria", expanded=False):
-                        st.write(f"Siivottuja rivejä: {len(cash_history)}")
-                        st.dataframe(
-                            cash_history[["date_clean", "value"]],
-                            use_container_width=True
-                        )
+                    def get_detail_value(name):
+                        row = latest_cash_rows.get(name)
+                        if row is None:
+                            return "—"
+                        return fmt_value(name, row["value"])
 
-                    if forecast is not None:
-                        st.markdown(
-                            f"""
-                            <div class="kpi-card" style="margin-top:-0.35rem;">
-                              <div class="forecast-title">Kassaennuste</div>
-                              <div class="kpi-meta"><strong>Viimeisin toteuma:</strong> {fmt_value(metric_name, forecast['latest'])}</div>
-                              <div class="kpi-meta"><strong>Keskimääräinen kk-muutos:</strong> {fmt_value(metric_name, forecast['avg_change'])}</div>
-                              <div class="kpi-meta"><strong>Volatiliteetti:</strong> {fmt_value(metric_name, forecast['volatility'])}</div>
-                              <div class="kpi-meta" style="margin-top:0.35rem;"><strong>6 kk ennuste</strong></div>
-                              <div class="kpi-meta">Varovainen: {fmt_value(metric_name, forecast['cautious_6m'])}</div>
-                              <div class="kpi-meta">Perus: {fmt_value(metric_name, forecast['base_6m'])}</div>
-                              <div class="kpi-meta">Optimistinen: {fmt_value(metric_name, forecast['optimistic_6m'])}</div>
-                            </div>
-                            """,
-                            unsafe_allow_html=True,
-                        )
-                    else:
-                        st.markdown(
-                            """
-                            <div class="kpi-card" style="margin-top:-0.35rem;">
-                              <div class="forecast-title">Kassaennuste</div>
-                              <div class="kpi-meta">Ennustetta ei voitu laskea. Tarkista kassahistorian päivämäärät ja arvot.</div>
-                            </div>
-                            """,
-                            unsafe_allow_html=True,
-                        )
+                    st.markdown(
+                        f"""
+                        <div class="kpi-card" style="margin-top:-0.35rem;">
+                          <div class="forecast-title">Kassaennuste (Excelistä syötetty)</div>
+                          <div class="kpi-meta"><strong>Viimeisin toteuma:</strong> {get_detail_value("Kassa – viimeisin toteuma")}</div>
+                          <div class="kpi-meta"><strong>Keskimääräinen kk-muutos:</strong> {get_detail_value("Kassa – keskimääräinen kk-muutos")}</div>
+                          <div class="kpi-meta"><strong>Volatiliteetti:</strong> {get_detail_value("Kassa – volatiliteetti")}</div>
+                          <div class="kpi-meta" style="margin-top:0.35rem;"><strong>6 kk ennuste</strong></div>
+                          <div class="kpi-meta">Varovainen: {get_detail_value("Kassa 6 kk – varovainen")}</div>
+                          <div class="kpi-meta">Perus: {get_detail_value("Kassa 6 kk – perus")}</div>
+                          <div class="kpi-meta">Optimistinen: {get_detail_value("Kassa 6 kk – optimistinen")}</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
 
                 trend_raw = data[data["metric"] == metric_name].copy()
                 trend_data = prepare_time_series(trend_raw)
@@ -428,7 +382,7 @@ with c3:
         <div class="risk-box">
           <div style="font-weight:800;">Huomio</div>
           <div style="color: var(--muted);">
-            Board View on vain luku. Päivitykset tehdään Ylläpito-sivulla ja tallennetaan snapshotina.
+            Board View on vain luku. Päivitykset tehdään Ylläpito-sivulla ja kassan ennuste tuodaan Excelistä käsin.
           </div>
         </div>
         """,
