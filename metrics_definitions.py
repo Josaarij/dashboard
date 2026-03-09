@@ -7,6 +7,12 @@ ALL_METRICS = {
     ],
     "TALOUS": [
         "Kassatilanne + ennuste",
+        "Kassa – viimeisin toteuma",
+        "Kassa – keskimääräinen kk-muutos",
+        "Kassa – volatiliteetti",
+        "Kassa 6 kk – varovainen",
+        "Kassa 6 kk – perus",
+        "Kassa 6 kk – optimistinen",
         "Tulosennuste",
         "Kattavuus % (maksut/kulut)",
         "Muut tuotot",
