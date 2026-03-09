@@ -2,31 +2,37 @@ name: Supabase Keepalive
 
 on:
   schedule:
-    # 2x viikossa (ma & to) klo 09:00 UTC
-    # (Helsinki: yleensä 11:00 talvella, 12:00 kesällä)
-    - cron: "0 9 * * 1"
-    - cron: "0 9 * * 4"
-  workflow_dispatch: {}
+    # Joka päivä klo 09:00 UTC
+    - cron: "0 9 * * *"
+  workflow_dispatch:
 
 jobs:
   keepalive:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Ping Supabase (read keepalive row)
+      - name: Update keepalive row in Supabase
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
           set -euo pipefail
+
           echo "SUPABASE_URL length: ${#SUPABASE_URL}"
           echo "SUPABASE_ANON_KEY length: ${#SUPABASE_ANON_KEY}"
-          ENDPOINT="${SUPABASE_URL}/rest/v1/keepalive?select=id,updated_at&limit=1"
+
+          ENDPOINT="${SUPABASE_URL}/rest/v1/keepalive?id=eq.1"
+
           echo "Pinging: $ENDPOINT"
-          curl -sS -X GET "$ENDPOINT" \
+
+          curl -sS -X PATCH "$ENDPOINT" \
             -H "apikey: ${SUPABASE_ANON_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
-            -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=representation" \
+            --data '{"updated_at":"'"$(date -u +"%Y-%m-%dT%H:%M:%SZ")"'"}' \
             --fail \
             | head -c 500
+
           echo
           echo "OK"
