@@ -156,11 +156,17 @@ def get_status(value: float, target: float, warning: float, direction: str) -> s
     return "🔴"
 
 
+def clean_number(v):
+    return pd.to_numeric(
+        str(v).replace("\u00a0", "").replace(" ", "").replace(",", "."),
+        errors="coerce"
+    )
+
+
 def fmt_value(metric_name: str, v) -> str:
-    try:
-        x = float(v)
-    except Exception:
-        return str(v)
+    x = clean_number(v)
+    if pd.isna(x):
+        return "—"
 
     name = metric_name.lower()
 
@@ -178,31 +184,10 @@ def fmt_value(metric_name: str, v) -> str:
 
 
 def prepare_time_series(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Yhtenäistää aikajanan:
-    - ottaa date-kentästä päiväosan
-    - muuntaa value numeeriseksi myös jos mukana on pilkkuja
-    - poistaa virheelliset rivit
-    - poistaa duplikaatit saman päivän osalta
-    """
     out = df.copy()
 
-    # Päivämäärä: ota aina vain YYYY-MM-DD alkuosa
-    out["date_clean"] = pd.to_datetime(
-        out["date"].astype(str).str[:10],
-        errors="coerce"
-    )
-
-    # Arvo: salli myös pilkku desimaalierottimena
-    out["value_clean"] = (
-        out["value"]
-        .astype(str)
-        .str.replace("\u00a0", "", regex=False)   # poista mahdollinen non-breaking space
-        .str.replace(" ", "", regex=False)        # poista välilyönnit
-        .str.replace(",", ".", regex=False)       # pilkku -> piste
-    )
-
-    out["value_clean"] = pd.to_numeric(out["value_clean"], errors="coerce")
+    out["date_clean"] = pd.to_datetime(out["date"], errors="coerce")
+    out["value_clean"] = out["value"].apply(clean_number)
 
     out = out.dropna(subset=["date_clean", "value_clean"]).copy()
     out = out.sort_values("date_clean")
@@ -210,31 +195,7 @@ def prepare_time_series(df: pd.DataFrame) -> pd.DataFrame:
     # Jos samalle päivälle on useampi rivi, jätetään viimeinen
     out = out.drop_duplicates(subset=["date_clean"], keep="last")
 
-    # Käytetään siivottua arvoa jatkossa
     out["value"] = out["value_clean"]
-
-    return out
-    """
-    Yhtenäistää aikajanan:
-    - ottaa date-kentästä päiväosan
-    - muuntaa value numeeriseksi
-    - poistaa virheelliset rivit
-    - poistaa duplikaatit saman päivän osalta
-    """
-    out = df.copy()
-
-    out["date_clean"] = pd.to_datetime(
-        out["date"].astype(str).str[:10],
-        errors="coerce"
-    )
-    out["value"] = pd.to_numeric(out["value"], errors="coerce")
-
-    out = out.dropna(subset=["date_clean", "value"]).copy()
-    out = out.sort_values("date_clean")
-
-    # Jos samalle päivälle on useampi rivi, jätetään viimeinen
-    out = out.drop_duplicates(subset=["date_clean"], keep="last")
-
     return out
 
 
@@ -270,22 +231,17 @@ def calculate_cash_forecast(cash_history: pd.DataFrame):
 
 resp = supabase.table("kpi_snapshots").select("*").execute()
 data = pd.DataFrame(resp.data)
-with st.expander("DEBUG: raw cash rows from Supabase", expanded=True):
-    raw_cash = data[data["metric"] == "Kassatilanne + ennuste"].copy()
-    st.write(f"Rivejä yhteensä: {len(raw_cash)}")
-    st.dataframe(raw_cash[["id", "date", "metric", "value"]], use_container_width=True)
+
 if data.empty:
     st.warning("Ei tallennettua dataa.")
     st.stop()
 
+# Pidetään raw-data mahdollisimman muuttumattomana
 data["date"] = pd.to_datetime(data["date"], errors="coerce")
-data["value"] = pd.to_numeric(data["value"], errors="coerce")
-data["target"] = pd.to_numeric(data["target"], errors="coerce")
-data["warning"] = pd.to_numeric(data["warning"], errors="coerce")
-data = data.dropna(subset=["date", "value"]).copy()
+data = data.dropna(subset=["date"]).copy()
 
 if data.empty:
-    st.warning("Tallennettu data ei sisällä käyttökelpoisia päivämääriä tai arvoja.")
+    st.warning("Tallennettu data ei sisällä käyttökelpoisia päivämääriä.")
     st.stop()
 
 latest = (
@@ -299,6 +255,12 @@ warning_list = []
 
 st.caption("Näytetään viimeisin tallennettu arvo per mittari sekä trendi historiadatan perusteella.")
 st.divider()
+
+# Raw-debug kassalle
+with st.expander("DEBUG: raw cash rows from Supabase", expanded=False):
+    raw_cash = data[data["metric"] == "Kassatilanne + ennuste"].copy()
+    st.write(f"Rivejä yhteensä: {len(raw_cash)}")
+    st.dataframe(raw_cash[["id", "date", "metric", "value"]], use_container_width=True)
 
 for category, metric_list in ALL_METRICS.items():
     st.markdown(f'<div class="kpi-category">{category}</div>', unsafe_allow_html=True)
@@ -326,10 +288,28 @@ for category, metric_list in ALL_METRICS.items():
                 )
             else:
                 row = metric_row.iloc[0]
-                value = float(row["value"])
-                target = float(row["target"])
-                warning = float(row["warning"])
+
+                value = clean_number(row["value"])
+                target = clean_number(row["target"])
+                warning = clean_number(row["warning"])
                 direction = str(row["direction"])
+
+                if pd.isna(value) or pd.isna(target) or pd.isna(warning):
+                    st.markdown(
+                        f"""
+                        <div class="kpi-card">
+                          <div class="kpi-title">
+                            <div class="kpi-name">{metric_name}</div>
+                            <div class="kpi-status">⚪</div>
+                          </div>
+                          <div class="kpi-value">—</div>
+                          <div class="kpi-meta">Arvoa ei voitu tulkita numeeriseksi</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+                    i += 1
+                    continue
 
                 status = get_status(value, target, warning, direction)
 
@@ -356,29 +336,17 @@ for category, metric_list in ALL_METRICS.items():
                     unsafe_allow_html=True,
                 )
 
-            if metric_name == "Kassatilanne + ennuste":
-                raw_cash_history = data[data["metric"] == metric_name].copy()
-                cash_history = prepare_time_series(raw_cash_history)
+                if metric_name == "Kassatilanne + ennuste":
+                    cash_raw = data[data["metric"] == metric_name].copy()
+                    cash_history = prepare_time_series(cash_raw)
+                    forecast = calculate_cash_forecast(cash_raw)
 
-                forecast = calculate_cash_forecast(raw_cash_history)
-
-                with st.expander("DEBUG: kassahistoria", expanded=True):
-                    st.write(f"Raakarivejä yhteensä: {len(raw_cash_history)}")
-                    if not raw_cash_history.empty:
+                    with st.expander("DEBUG: kassahistoria", expanded=False):
+                        st.write(f"Siivottuja rivejä: {len(cash_history)}")
                         st.dataframe(
-                            raw_cash_history[["date", "value", "target", "warning", "direction"]],
+                            cash_history[["date_clean", "value"]],
                             use_container_width=True
-            )
-
-                    st.write(f"Siivottuja rivejä yhteensä: {len(cash_history)}")
-                    if not cash_history.empty:
-                        cols_to_show = ["date", "date_clean", "value"]
-                        if "value_clean" in cash_history.columns:
-                            cols_to_show.append("value_clean")
-                    st.dataframe(
-                        cash_history[cols_to_show],
-                        use_container_width=True
-            )
+                        )
 
                     if forecast is not None:
                         st.markdown(
@@ -407,9 +375,8 @@ for category, metric_list in ALL_METRICS.items():
                             unsafe_allow_html=True,
                         )
 
-                trend_data = prepare_time_series(
-                    data[data["metric"] == metric_name].copy()
-                )
+                trend_raw = data[data["metric"] == metric_name].copy()
+                trend_data = prepare_time_series(trend_raw)
 
                 if len(trend_data) > 1:
                     fig = px.line(trend_data, x="date_clean", y="value")
